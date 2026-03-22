@@ -52,6 +52,7 @@
             background-image: linear-gradient(to bottom, transparent 70%, #8B4513 70%);
             border-bottom: 20px solid #2ed573;
             overflow: hidden;
+            transition: background-color 2s ease; /* 讓天色變換比較柔和 */
         }
 
         .scenery {
@@ -72,6 +73,14 @@
             z-index: 10;
             transition: bottom 0.1s ease-out;
             display: none;
+        }
+
+        /* 動態背景物件(樹木、雲朵) */
+        .bg-prop {
+            position: absolute;
+            z-index: 2;
+            transition: transform 0.2s ease-out;
+            pointer-events: none;
         }
 
         .unit {
@@ -307,7 +316,7 @@
         </div>
         <div class="cat-card" id="card-3">
             <div class="charged-tag">Ready</div>
-            <div class="icon">😼</div><div>忍者貓</div> <!-- 換成通用支援的自信貓 -->
+            <div class="icon">😼</div><div>忍者貓</div>
             <div class="level-tag cat-lv-display">Lv.1</div>
             <div class="price">50 🪙</div>
             <div class="hint" id="stats-3" style="background: #3742fa;">血40 攻40</div>
@@ -347,13 +356,11 @@
             let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             if (diffDays > 1) {
-                // 超過一天沒玩，天數重新計算
                 consecutiveDays = 1; 
                 localStorage.setItem('consecutiveDays', consecutiveDays);
             }
         }
 
-        // 決定貓咪等級 (1天=Lv1, 3天=Lv2, 7天=Lv3)
         let catLevel = 1;
         if (consecutiveDays >= 7) catLevel = 3;
         else if (consecutiveDays >= 3) catLevel = 2;
@@ -363,7 +370,7 @@
         lvTags.forEach(tag => tag.innerText = `Lv.${catLevel}`);
 
         // --- 遊戲變數 ---
-        let playMode = 'NOROPE'; // 'ROPE' 或是 'NOROPE'
+        let playMode = 'NOROPE';
         let coinMultiplier = 1;
         let requiredJoycons = 1;
         let connectedDevicesCount = 0;
@@ -386,7 +393,6 @@
             { icon: '👹', baseHp: 300, atk: 30, speed: 1, range: 50, cooldown: 90 }
         ];
 
-        // 更新貓咪卡片上的具體數值顯示
         function updateCatCardStats() {
             let upgradeMult = 1 + (catLevel - 1) * 0.5;
             for (let i = 1; i <= 5; i++) {
@@ -399,7 +405,7 @@
                 }
             }
         }
-        updateCatCardStats(); // 初始化時呼叫一次
+        updateCatCardStats(); 
 
         let currentPhase = 'NONE';
         let coins = 0;
@@ -425,7 +431,7 @@
             5: document.getElementById('card-5')
         };
 
-        // --- 模式選擇 UI 邏輯 ---
+        // --- 模式選擇 UI ---
         document.getElementById('mode-rope-btn').addEventListener('click', () => {
             playMode = 'ROPE';
             coinMultiplier = 2;
@@ -514,6 +520,7 @@
             
             document.getElementById('phase-text').innerText = `🏃‍♂️ 第 ${currentRound} 局 備戰中`;
             document.getElementById('time-bar').style.background = '#2ed573';
+            battlefield.style.backgroundColor = '#87CEEB'; // 早上藍天
             shopOverlay.style.display = 'flex'; 
             scoutCat.style.display = 'block';   
             
@@ -522,6 +529,9 @@
             
             units.forEach(u => u.el.remove());
             units = [];
+            
+            // 清理上一局殘留的動態背景
+            document.querySelectorAll('.bg-prop').forEach(el => el.remove());
         }
 
         function startBattlePhase() {
@@ -539,6 +549,9 @@
             shopOverlay.style.display = 'none'; 
             scoutCat.style.display = 'none';    
             updateShopUI();
+            
+            // 進入戰鬥時清理動態背景，讓畫面專注在打怪
+            document.querySelectorAll('.bg-prop').forEach(el => el.remove());
         }
 
         class Unit {
@@ -546,8 +559,7 @@
                 this.isCat = isCat;
                 this.icon = typeData.icon;
                 
-                // 套用連續天數的等級加成 (血量和攻擊力)
-                let upgradeMult = 1 + (catLevel - 1) * 0.5; // Lv1: 1x, Lv2: 1.5x, Lv3: 2x
+                let upgradeMult = 1 + (catLevel - 1) * 0.5; 
                 this.maxHp = Math.floor(typeData.hp * (isCat ? upgradeMult : 1));
                 this.hp = this.maxHp;
                 this.atk = Math.floor(typeData.atk * (isCat ? upgradeMult : 1));
@@ -635,7 +647,6 @@
             
             const baseType = MONSTER_TYPES[mTypeIndex];
             
-            // 怪獸血量隨局數變強
             let hpMultiplier = 1 + ((currentRound - 1) * 0.5);
             let finalHp = Math.floor(baseType.baseHp * hpMultiplier);
 
@@ -658,7 +669,7 @@
                 monsters.forEach(m => m.update(cats));
                 units = units.filter(u => u.hp > 0);
 
-                let spawnInterval = Math.max(25, 75 - (currentRound * 10)); // 稍微加快出怪頻率，讓這1分鐘感覺更充實
+                let spawnInterval = Math.max(25, 75 - (currentRound * 10)); 
                 if (frameCount % spawnInterval === 0) spawnMonster();
             }
 
@@ -698,6 +709,17 @@
                 let phaseIcon = currentPhase === 'JUMP' ? `🏃‍♂️ 第 ${currentRound} 局 備戰中` : '⚔️ 怪物來襲！';
                 document.getElementById('phase-text').innerText = `${phaseIcon} ${mins}:${secs.toString().padStart(2, '0')}`;
 
+                // 處理天色變化 (改成區間判斷，避免快轉或卡頓錯過)
+                if (currentPhase === 'JUMP') {
+                    if (timeRemaining <= 60) {
+                        battlefield.style.backgroundColor = '#2c3e50'; // 黑夜
+                    } else if (timeRemaining <= 120) {
+                        battlefield.style.backgroundColor = '#feca57'; // 黃昏夕陽
+                    } else {
+                        battlefield.style.backgroundColor = '#87CEEB'; // 早上藍天
+                    }
+                }
+
                 if (timeRemaining <= 0) {
                     if (currentPhase === 'JUMP') startBattlePhase();
                     else showRoundResult(); 
@@ -714,14 +736,12 @@
             todayTotalJumps += roundJumps;
             todayCompletedRounds++;
             
-            // 更新每日登入狀態與貓咪等級
             if (savedDate !== todayDate) {
                 consecutiveDays++;
-                savedDate = todayDate; // 修正：確保同一天不會重複計算
+                savedDate = todayDate; 
                 localStorage.setItem('consecutiveDays', consecutiveDays);
                 localStorage.setItem('lastPlayDate', todayDate);
                 
-                // 結算時即時更新貓咪等級
                 if (consecutiveDays >= 7) catLevel = 3;
                 else if (consecutiveDays >= 3) catLevel = 2;
                 else catLevel = 1;
@@ -730,7 +750,7 @@
                 document.getElementById('summary-streak').innerText = `目前連續跳繩：${consecutiveDays} 天`;
                 let lvTags = document.querySelectorAll('.cat-lv-display');
                 lvTags.forEach(tag => tag.innerText = `Lv.${catLevel}`);
-                updateCatCardStats(); // 換日時同步更新卡片數值
+                updateCatCardStats(); 
             }
             localStorage.setItem('lifetimeJumps', lifetimeJumps);
 
@@ -746,7 +766,6 @@
             document.getElementById('result-screen').style.display = 'flex';
         }
 
-        // --- 每日結算與情緒價值畫面 ---
         function showDailySummary() {
             document.getElementById('result-screen').style.display = 'none';
             document.getElementById('daily-summary-screen').style.display = 'flex';
@@ -755,7 +774,6 @@
             document.getElementById('summary-jumps').innerText = todayTotalJumps;
             document.getElementById('summary-streak').innerText = `目前連續跳繩：${consecutiveDays} 天`;
             
-            // 預告獎勵邏輯
             let nextRewardText = "";
             if (consecutiveDays < 3) {
                 let daysLeft = 3 - consecutiveDays;
@@ -779,15 +797,56 @@
             roundJumps++;
             document.getElementById('jump-display').innerText = roundJumps;
             
-            // 賺錢邏輯：基礎倍率 × 有無繩加成
             let coinsEarned = (1 + currentRound) * coinMultiplier;
             addCoins(coinsEarned); 
             
+            // 地板與小貓動畫
             sceneryPos -= 50;
             scenery.style.transform = `translateX(${sceneryPos}px)`;
             scoutCat.style.bottom = '35%';
             setTimeout(() => scoutCat.style.bottom = '30%', 100);
 
+            // 背景物件移動邏輯：因為是在跳躍時才推進畫面，所以物件只在跳躍時移動
+            document.querySelectorAll('.bg-prop').forEach(prop => {
+                let currentX = parseFloat(prop.dataset.x) || 0;
+                let speed = parseFloat(prop.dataset.speed) || 20;
+                currentX -= speed;
+                prop.dataset.x = currentX;
+                prop.style.transform = `translateX(${currentX}px)`;
+                
+                // 超出畫面就移除
+                if (currentX < -100) {
+                    prop.remove();
+                }
+            });
+
+            // 機率性生成新的背景物件
+            if (Math.random() < 0.25) {
+                let isCloud = Math.random() < 0.4; // 40% 機率是雲，60% 是樹
+                let prop = document.createElement('div');
+                prop.className = 'bg-prop';
+                prop.innerText = isCloud ? '☁️' : (Math.random() < 0.5 ? '🌲' : '🌳');
+                
+                prop.dataset.x = window.innerWidth;
+                prop.style.transform = `translateX(${window.innerWidth}px)`;
+                
+                if (isCloud) {
+                    prop.style.top = (Math.random() * 30 + 5) + '%';
+                    prop.style.fontSize = (Math.random() * 30 + 40) + 'px';
+                    prop.dataset.speed = 25; // 雲飄得比較慢
+                    prop.style.opacity = '0.7';
+                    prop.style.zIndex = 2;
+                } else {
+                    prop.style.bottom = '30%';
+                    prop.style.fontSize = (Math.random() * 20 + 50) + 'px';
+                    prop.dataset.speed = 50; // 樹的移動速度跟隨地板
+                    prop.style.zIndex = 3;
+                }
+                
+                battlefield.appendChild(prop);
+            }
+
+            // 寶箱獎勵
             if (roundJumps > 0 && roundJumps % 50 === 0) {
                 let bonusAmount = (20 + (currentRound * 10)) * coinMultiplier;
                 addCoins(bonusAmount);
@@ -831,7 +890,6 @@
                 timeRemaining = Math.max(1, timeRemaining - 10);
             }
             
-            // 測試專用：按 D 鍵模擬增加連續天數
             if (e.code === 'KeyD') {
                 consecutiveDays++;
                 localStorage.setItem('consecutiveDays', consecutiveDays);
@@ -844,12 +902,11 @@
                 document.getElementById('summary-streak').innerText = `目前連續跳繩：${consecutiveDays} 天`;
                 let lvTags = document.querySelectorAll('.cat-lv-display');
                 lvTags.forEach(tag => tag.innerText = `Lv.${catLevel}`);
-                updateCatCardStats(); // 同步更新卡片數值
+                updateCatCardStats(); 
                 showSysMsg(`測試成功：天數已增加至 ${consecutiveDays} 天`);
             }
         });
 
-        // 畫面上按鈕的換日測試邏輯
         document.getElementById('cheat-day-btn').addEventListener('click', () => {
             consecutiveDays++;
             localStorage.setItem('consecutiveDays', consecutiveDays);
