@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超人醫師的星際跳躍</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'Comic Sans MS', '微軟正黑體', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            /* 背景顏色會隨高度改變，先設一個預設值 */
+            background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+            background-size: 100% 300%;
+            background-position: bottom;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            transition: background-position 1s ease-out;
+        }
+
+        .header {
+            width: 100%;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+            position: absolute;
+            top: 0;
+        }
+
+        .stats-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stats-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: 3px solid #333;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 速度線特效 (背景往下掉的星星) */
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            width: 4px;
+            height: 4px;
+            top: -10px;
+            z-index: 1;
+        }
+
+        /* 火箭主體 */
+        #rocket-container {
+            position: relative;
+            z-index: 5;
+            transition: transform 0.1s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 100px;
+        }
+
+        #rocket {
+            font-size: 100px;
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.3));
+        }
+
+        /* 火箭尾焰 */
+        #flame {
+            font-size: 50px;
+            margin-top: -20px;
+            opacity: 0.5;
+            transition: all 0.2s;
+            transform-origin: top;
+        }
+
+        /* 連擊顯示器 */
+        #combo-display {
+            position: absolute;
+            top: 20%;
+            font-size: 80px;
+            font-weight: bold;
+            color: #ff9f43;
+            text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff, 4px -4px 0 #fff, -4px 4px 0 #fff;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        #combo-display.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #combo-display.fever {
+            color: #ee5253;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1) rotate(5deg); }
+        }
+
+        /* 噴金幣特效 */
+        .coin-pop {
+            position: absolute;
+            font-size: 30px;
+            z-index: 8;
+            pointer-events: none;
+            animation: popUpAndFade 0.8s ease-out forwards;
+        }
+
+        @keyframes popUpAndFade {
+            0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
+            50% { transform: translate(var(--tx), -100px) scale(1.2); opacity: 1; }
+            100% { transform: translate(var(--tx), -50px) scale(1); opacity: 0; }
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 20;
+            width: 100%;
+        }
+
+        button {
+            background: #1dd1a1;
+            color: white;
+            border: 3px solid #fff;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(2px);
+        }
+
+        #status-text {
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="stats-group">
+            <div class="stats-box">
+                高度: <span id="altitude-display">0</span> km
+            </div>
+            <div class="stats-box">
+                跳躍: <span id="jump-count">0</span>
+            </div>
+        </div>
+        <div class="stats-box">
+            金幣: <span id="coin-count">0</span>
+        </div>
+    </div>
+
+    <div id="game-area">
+        <div id="combo-display">Combo x <span id="combo-num">0</span></div>
+        
+        <div id="rocket-container">
+            <div id="rocket">🚀</div>
+            <div id="flame">🔥</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="connect-btn">連接 Joy-Con (或點擊螢幕測試)</button>
+        <div id="status-text">保持規律跳躍，衝向宇宙吧！</div>
+    </div>
+
+    <script>
+        const jumpCountEl = document.getElementById('jump-count');
+        const coinCountEl = document.getElementById('coin-count');
+        const altitudeDisplayEl = document.getElementById('altitude-display');
+        const comboDisplayEl = document.getElementById('combo-display');
+        const comboNumEl = document.getElementById('combo-num');
+        const rocketContainer = document.getElementById('rocket-container');
+        const flame = document.getElementById('flame');
+        const gameArea = document.getElementById('game-area');
+        const connectBtn = document.getElementById('connect-btn');
+        const statusText = document.getElementById('status-text');
+
+        // 遊戲核心數據
+        let totalJumps = 0;
+        let coins = 0;
+        let altitude = 0;
+        let combo = 0;
+        
+        // 節奏判斷變數
+        let lastJumpTime = 0;
+        const RHYTHM_WINDOW = 2000; // 2秒內跳躍都能維持 Combo
+        const DEBOUNCE_TIME = 300;  // 避免一次跳躍被連點兩次
+
+        // 星星粒子陣列
+        let stars = [];
+
+        // 核心跳躍邏輯
+        function triggerJump() {
+            const now = Date.now();
+            
+            // 避免硬體連發或手震導致的重複計算
+            if (now - lastJumpTime < DEBOUNCE_TIME) return;
+
+            // 判斷是否在節奏視窗內
+            if (now - lastJumpTime < RHYTHM_WINDOW) {
+                combo++;
+            } else {
+                // 停頓太久，重新計算 Combo
+                combo = 1;
+            }
+            
+            lastJumpTime = now;
+            totalJumps++;
+
+            // 根據 Combo 決定這次跳躍的獎勵
+            let coinsEarned = 1;
+            let altitudeGained = 1;
+
+            if (combo >= 20) {
+                coinsEarned = 5;
+                altitudeGained = 5;
+            } else if (combo >= 10) {
+                coinsEarned = 3;
+                altitudeGained = 3;
+            } else if (combo >= 5) {
+                coinsEarned = 2;
+                altitudeGained = 2;
+            }
+
+            coins += coinsEarned;
+            altitude += altitudeGained;
+
+            // 更新畫面數字
+            jumpCountEl.innerText = totalJumps;
+            coinCountEl.innerText = coins;
+            altitudeDisplayEl.innerText = altitude;
+
+            // 處理特效
+            updateVisuals(coinsEarned);
+        }
+
+        function updateVisuals(coinsEarned) {
+            // 1. 火箭震動特效
+            rocketContainer.style.transform = 'translateY(-20px)';
+            setTimeout(() => {
+                rocketContainer.style.transform = 'translateY(0)';
+            }, 100);
+
+            // 2. 噴金幣特效
+            for (let i = 0; i < coinsEarned; i++) {
+                const coin = document.createElement('div');
+                coin.innerText = "🪙";
+                coin.className = 'coin-pop';
+                
+                // 隨機噴射角度
+                const randomX = (Math.random() - 0.5) * 150;
+                coin.style.setProperty('--tx', `${randomX}px`);
+                
+                // 定位在火箭旁邊
+                coin.style.left = '50%';
+                coin.style.top = '50%';
+                
+                gameArea.appendChild(coin);
+                setTimeout(() => coin.remove(), 800);
+            }
+
+            // 3. 更新 Combo 顯示
+            if (combo > 1) {
+                comboNumEl.innerText = combo;
+                comboDisplayEl.classList.add('active');
+                
+                // 重新觸發 CSS 動畫的偷吃步
+                comboDisplayEl.style.animation = 'none';
+                comboDisplayEl.offsetHeight; // 觸發重繪
+                comboDisplayEl.style.animation = null;
+
+                if (combo >= 10) {
+                    comboDisplayEl.classList.add('fever');
+                } else {
+                    comboDisplayEl.classList.remove('fever');
+                }
+            }
+
+            // 4. 更新火焰大小
+            const flameScale = Math.min(1 + (combo * 0.1), 3); 
+            flame.style.transform = `scale(${flameScale})`;
+            flame.style.opacity = Math.min(0.5 + (combo * 0.05), 1);
+
+            // 5. 更新背景顏色 (模擬飛向宇宙)
+            const bgPosition = Math.min((altitude / 200) * 100, 100);
+            document.body.style.backgroundPosition = `center ${100 - bgPosition}%`;
+        }
+
+        // 遊戲持續更新迴圈 (處理背景星星與 Combo 中斷)
+        function gameLoop() {
+            const now = Date.now();
+
+            // 如果太久沒跳，Combo 歸零且火焰變小
+            if (combo > 0 && now - lastJumpTime > RHYTHM_WINDOW) {
+                combo = 0;
+                comboDisplayEl.classList.remove('active');
+                comboDisplayEl.classList.remove('fever');
+                flame.style.transform = 'scale(0.5)';
+                flame.style.opacity = '0.3';
+            }
+
+            // 根據目前的 Combo 決定星星掉落速度
+            const speedMultiplier = 1 + (combo * 0.5);
+
+            // 產生新星星
+            if (Math.random() < 0.1 * speedMultiplier) {
+                createStar();
+            }
+
+            // 移動現有星星
+            for (let i = stars.length - 1; i >= 0; i--) {
+                let star = stars[i];
+                star.y += star.speed * speedMultiplier;
+                star.el.style.top = star.y + 'px';
+
+                if (star.y > window.innerHeight) {
+                    star.el.remove();
+                    stars.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function createStar() {
+            const el = document.createElement('div');
+            el.className = 'star';
+            el.style.left = Math.random() * window.innerWidth + 'px';
+            
+            // 星星有遠近感，大小跟速度不同
+            const size = Math.random() * 3 + 1;
+            el.style.width = size + 'px';
+            el.style.height = size + 'px';
+            el.style.opacity = Math.random() * 0.5 + 0.3;
+
+            gameArea.appendChild(el);
+
+            stars.push({
+                el: el,
+                y: -10,
+                speed: Math.random() * 5 + 2
+            });
+        }
+
+        // --- 控制器輸入 ---
+
+        // 點擊螢幕測試
+        window.addEventListener('mousedown', triggerJump);
+        window.addEventListener('touchstart', (e) => {
+            // 避免碰到按鈕也觸發跳躍
+            if(e.target !== connectBtn) triggerJump();
+        });
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                triggerJump();
+            }
+        });
+
+        // Joy-Con 連線
+        const JUMP_THRESHOLD = 2000; 
+
+        connectBtn.addEventListener('click', async () => {
+            try {
+                const devices = await navigator.hid.requestDevice({
+                    filters: [{ vendorId: 0x057e }] 
+                });
+
+                if (devices.length === 0) {
+                    statusText.innerText = "沒選到手把喔";
+                    return;
+                }
+
+                const joycon = devices[0];
+                await joycon.open();
+                
+                statusText.innerText = `連線成功: ${joycon.productName}`;
+                connectBtn.style.display = 'none';
+
+                joycon.addEventListener('inputreport', (event) => {
+                    const { data } = event;
+                    if (data.byteLength > 15) {
+                        const yAccel = new DataView(data.buffer).getInt16(15, true);
+                        // 拿掉 !isJumping 的限制，改由時間差(DEBOUNCE_TIME)來過濾
+                        if (Math.abs(yAccel) > JUMP_THRESHOLD) {
+                            triggerJump();
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = "連線失敗，請確認瀏覽器支援此功能";
+            }
+        });
+
+        // 啟動背景動畫
+        gameLoop();
+
+    </script>
+</body>
+</html>
