@@ -405,8 +405,23 @@
             }
         });
 
-        // Joy-Con 連線
-        const JUMP_THRESHOLD = 2000; 
+        // 送出 Joy-Con 指令的輔助函式 (用來喚醒感測器)
+        async function sendJoyconCommand(device, subcommand, args) {
+            const payload = new Uint8Array(40);
+            payload[0] = Math.floor(Math.random() * 256); // 封包計數器
+            // 預設的震動資料 (任天堂要求指令必須夾帶這個格式才能成功解析)
+            payload[1] = 0x00; payload[2] = 0x01; payload[3] = 0x40; payload[4] = 0x40;
+            payload[5] = 0x00; payload[6] = 0x01; payload[7] = 0x40; payload[8] = 0x40;
+            
+            payload[9] = subcommand;
+            for (let i = 0; i < args.length; i++) {
+                payload[10 + i] = args[i];
+            }
+            await device.sendReport(0x01, payload);
+        }
+
+        // 設定揮動的門檻值 (靜止時綜合數值約 4000，揮動時通常會超過 8000)
+        const JUMP_THRESHOLD = 8000; 
 
         connectBtn.addEventListener('click', async () => {
             try {
@@ -422,16 +437,34 @@
                 const joycon = devices[0];
                 await joycon.open();
                 
-                statusText.innerText = `連線成功: ${joycon.productName}`;
+                statusText.innerText = `設定感測器中...`;
                 connectBtn.style.display = 'none';
 
+                // 步驟一：喚醒 Joy-Con 的加速度計與陀螺儀
+                await sendJoyconCommand(joycon, 0x40, [0x01]);
+                // 稍微等硬體反應一下
+                await new Promise(resolve => setTimeout(resolve, 50));
+                // 步驟二：將回報模式改成「標準全資料模式」(0x30)
+                await sendJoyconCommand(joycon, 0x03, [0x30]);
+
+                statusText.innerText = `連線成功: ${joycon.productName}！開始跳吧`;
+
                 joycon.addEventListener('inputreport', (event) => {
-                    const { data } = event;
-                    if (data.byteLength > 15) {
-                        const yAccel = new DataView(data.buffer).getInt16(15, true);
-                        // 拿掉 !isJumping 的限制，改由時間差(DEBOUNCE_TIME)來過濾
-                        if (Math.abs(yAccel) > JUMP_THRESHOLD) {
-                            triggerJump();
+                    // 我們只處理標準全資料模式的封包
+                    if (event.reportId === 0x30) {
+                        const data = event.data;
+                        // 加速度計資料位於封包的 12~17 byte (X, Y, Z 軸各佔 2 byte)
+                        if (data.byteLength >= 18) {
+                            const x = data.getInt16(12, true);
+                            const y = data.getInt16(14, true);
+                            const z = data.getInt16(16, true);
+                            
+                            // 計算總加速度的強度 (這樣不管手把轉哪個方向都能感測)
+                            const magnitude = Math.sqrt(x*x + y*y + z*z);
+                            
+                            if (magnitude > JUMP_THRESHOLD) {
+                                triggerJump();
+                            }
                         }
                     }
                 });
@@ -439,6 +472,7 @@
             } catch (error) {
                 console.error(error);
                 statusText.innerText = "連線失敗，請確認瀏覽器支援此功能";
+                connectBtn.style.display = 'block';
             }
         });
 
