@@ -73,6 +73,7 @@
             z-index: 10;
             transition: bottom 0.1s ease-out;
             display: none;
+            transform: scaleX(-1); /* 讓領跑貓也朝向右邊 */
         }
 
         .bg-prop {
@@ -94,8 +95,6 @@
         }
         .hp-bar-bg { width: 40px; height: 6px; background: red; margin-bottom: 5px; border-radius: 3px; }
         .hp-bar { height: 100%; background: #2ed573; border-radius: 3px; width: 100%; transition: width 0.2s; }
-        .unit.cat { transform: scaleX(1); }
-        .unit.monster { transform: scaleX(-1); }
         
         .damage-text {
             position: absolute; color: red; font-weight: bold; font-size: 24px;
@@ -634,7 +633,11 @@
             createDOM() {
                 const el = document.createElement('div');
                 el.className = `unit ${this.isCat ? 'cat' : 'monster'}`;
-                el.innerHTML = `<div class="hp-bar-bg"><div class="hp-bar" id="hp-${this.id}"></div></div><div>${this.icon}</div>`;
+                // 加入 emoji-icon 獨立翻轉，避免連帶翻轉血條
+                el.innerHTML = `
+                    <div class="hp-bar-bg"><div class="hp-bar" id="hp-${this.id}"></div></div>
+                    <div class="emoji-icon" style="transform: scaleX(${this.isCat ? -1 : 1}); display: inline-block; transition: transform 0.1s;">${this.icon}</div>
+                `;
                 el.style.left = this.x + 'px';
                 return el;
             }
@@ -681,8 +684,15 @@
                     if (this.cooldown <= 0) {
                         nearestEnemy.takeDamage(this.atk);
                         this.cooldown = this.cooldownMax;
-                        this.el.style.transform = `scaleX(${this.isCat ? 1 : -1}) rotate(${this.isCat ? 15 : -15}deg)`;
-                        setTimeout(() => this.el.style.transform = `scaleX(${this.isCat ? 1 : -1}) rotate(0deg)`, 100);
+                        
+                        const iconEl = this.el.querySelector('.emoji-icon');
+                        if (iconEl) {
+                            // 貓咪面朝右，攻擊時稍微往前傾(逆時針為負角度)
+                            iconEl.style.transform = `scaleX(${this.isCat ? -1 : 1}) rotate(${this.isCat ? -15 : 15}deg)`;
+                            setTimeout(() => {
+                                if (iconEl) iconEl.style.transform = `scaleX(${this.isCat ? -1 : 1}) rotate(0deg)`;
+                            }, 100);
+                        }
                     }
                 } else {
                     this.x += this.isCat ? this.speed : -this.speed;
