@@ -52,7 +52,7 @@
             background-image: linear-gradient(to bottom, transparent 70%, #8B4513 70%);
             border-bottom: 20px solid #2ed573;
             overflow: hidden;
-            transition: background-color 2s ease; /* 讓天色變換比較柔和 */
+            transition: background-color 2s ease;
         }
 
         .scenery {
@@ -75,7 +75,6 @@
             display: none;
         }
 
-        /* 動態背景物件(樹木、雲朵) */
         .bg-prop {
             position: absolute;
             z-index: 2;
@@ -239,7 +238,7 @@
                 <button id="start-btn" class="btn-success" style="display:none;">開始第 1 局</button>
             </div>
             
-            <!-- 新增節拍器開關按鈕 -->
+            <!-- 節拍器開關 -->
             <button id="metronome-toggle-btn" style="background: #34495e; color: white; padding: 10px 20px; font-size: 16px; margin-top: 15px; box-shadow: none;">🎵 輔助節拍器：關閉</button>
             
             <button id="back-mode-btn" style="background: transparent; color: #888; box-shadow: none; font-size: 14px; margin-top: 10px;">重新選擇模式</button>
@@ -391,8 +390,8 @@
         let currentRound = 1;
         let todayCompletedRounds = 0;
         let todayTotalJumps = 0;
-
-        let jumpTimestamps = []; // 用來計算即時配速的陣列
+        
+        let jumpTimestamps = []; 
 
         const CAT_TYPES = {
             1: { id: 1, icon: '🐈', price: 10, hp: 50, atk: 15, speed: 2, range: 40, cooldown: 50, reqJumps: 0, reqRound: 1 },
@@ -430,12 +429,11 @@
         let isPlaying = false;
         let gameLoopId;
         
-        // 節拍器相關變數
         let audioCtx;
         let metronomeInterval;
         let isMetronomeOn = false;
-        const TARGET_BPM = 70; // 配合醫師建議的完美中間值
-
+        const TARGET_BPM = 70; 
+        
         const JUMP_TIME = 180; 
         const BATTLE_TIME = 60; 
         let timeRemaining = JUMP_TIME;
@@ -479,13 +477,11 @@
             updateStartButtonStatus();
         }
 
-        // 節拍器開關邏輯
         document.getElementById('metronome-toggle-btn').addEventListener('click', (e) => {
             isMetronomeOn = !isMetronomeOn;
             if (isMetronomeOn) {
                 e.target.innerText = '🎵 輔助節拍器：開啟 (70 BPM)';
                 e.target.style.background = '#2ed573';
-                // 預先初始化音效引擎 (瀏覽器規定必須由使用者點擊來觸發)
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             } else {
                 e.target.innerText = '🎵 輔助節拍器：關閉';
@@ -547,7 +543,6 @@
             updateShopUI();
         }
 
-        // 產生節拍聲音的函式
         function playBeatSound() {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
@@ -556,9 +551,9 @@
             gainNode.connect(audioCtx.destination);
             
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime); // 聲音頻率(稍微清脆)
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
             
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // 音量不要太大以免刺耳
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
             gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
             
             osc.start(audioCtx.currentTime);
@@ -569,7 +564,7 @@
             currentPhase = 'JUMP';
             timeRemaining = JUMP_TIME;
             roundJumps = 0;
-            jumpTimestamps = []; // 每次換局清空配速紀錄
+            jumpTimestamps = [];
             document.getElementById('jump-display').innerText = 0;
             
             document.getElementById('phase-text').innerText = `🏃‍♂️ 第 ${currentRound} 局 備戰中`;
@@ -585,10 +580,8 @@
             units.forEach(u => u.el.remove());
             units = [];
             
-            // 清理上一局殘留的動態背景
             document.querySelectorAll('.bg-prop').forEach(el => el.remove());
 
-            // 啟動節拍器
             if (isMetronomeOn) {
                 if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
                 const beatDelay = 60000 / TARGET_BPM;
@@ -600,9 +593,8 @@
             currentPhase = 'BATTLE';
             timeRemaining = BATTLE_TIME;
             
-            // 戰鬥時關閉節拍器
             if (metronomeInterval) clearInterval(metronomeInterval);
-
+            
             const transitionEl = document.getElementById('phase-transition');
             document.getElementById('transition-title').innerText = `第 ${currentRound} 波怪物來襲！`;
             document.getElementById('transition-subtitle').innerText = "血量變厚了，準備迎擊！";
@@ -745,14 +737,12 @@
             if (currentPhase !== 'JUMP') return;
             const now = Date.now();
             
-            // 只保留過去 10 秒內的跳躍紀錄來推算
             jumpTimestamps = jumpTimestamps.filter(t => now - t < 10000);
             
             let currentBPM = 0;
             const paceEl = document.getElementById('pace-indicator');
             
             if (jumpTimestamps.length > 2) {
-                // 將 10 秒內的次數乘以 6，推算出一分鐘的配速
                 currentBPM = jumpTimestamps.length * 6; 
             }
 
@@ -808,16 +798,15 @@
                 let phaseIcon = currentPhase === 'JUMP' ? `🏃‍♂️ 第 ${currentRound} 局 備戰中` : '⚔️ 怪物來襲！';
                 document.getElementById('phase-text').innerText = `${phaseIcon} ${mins}:${secs.toString().padStart(2, '0')}`;
 
-                updateBPM(); // 每秒更新一次配速顯示
+                updateBPM(); 
 
-                // 處理天色變化 (3分鐘版本)
                 if (currentPhase === 'JUMP') {
                     if (timeRemaining <= 60) {
-                        battlefield.style.backgroundColor = '#2c3e50'; // 黑夜 (最後1分鐘)
+                        battlefield.style.backgroundColor = '#2c3e50'; 
                     } else if (timeRemaining <= 120) {
-                        battlefield.style.backgroundColor = '#feca57'; // 黃昏夕陽 (剩2分鐘時)
+                        battlefield.style.backgroundColor = '#feca57'; 
                     } else {
-                        battlefield.style.backgroundColor = '#87CEEB'; // 早上藍天
+                        battlefield.style.backgroundColor = '#87CEEB'; 
                     }
                 }
 
@@ -898,22 +887,20 @@
             lastJumpTime = now;
             
             roundJumps++;
-            jumpTimestamps.push(now); // 紀錄這次跳躍的時間點
+            jumpTimestamps.push(now);
             document.getElementById('jump-display').innerText = roundJumps;
             
             let currentBPM = jumpTimestamps.length * 6;
-            let paceBonus = (currentBPM >= 60 && currentBPM <= 85) ? 2 : 1; // 完美節奏時金幣加倍
+            let paceBonus = (currentBPM >= 60 && currentBPM <= 85) ? 2 : 1;
 
             let coinsEarned = (1 + currentRound) * coinMultiplier * paceBonus;
             addCoins(coinsEarned); 
             
-            // 地板與小貓動畫
             sceneryPos -= 50;
             scenery.style.transform = `translateX(${sceneryPos}px)`;
             scoutCat.style.bottom = '35%';
             setTimeout(() => scoutCat.style.bottom = '30%', 100);
 
-            // 背景物件移動邏輯：因為是在跳躍時才推進畫面，所以物件只在跳躍時移動
             document.querySelectorAll('.bg-prop').forEach(prop => {
                 let currentX = parseFloat(prop.dataset.x) || 0;
                 let speed = parseFloat(prop.dataset.speed) || 20;
@@ -921,15 +908,13 @@
                 prop.dataset.x = currentX;
                 prop.style.transform = `translateX(${currentX}px)`;
                 
-                // 超出畫面就移除
                 if (currentX < -100) {
                     prop.remove();
                 }
             });
 
-            // 機率性生成新的背景物件
             if (Math.random() < 0.25) {
-                let isCloud = Math.random() < 0.4; // 40% 機率是雲，60% 是樹
+                let isCloud = Math.random() < 0.4; 
                 let prop = document.createElement('div');
                 prop.className = 'bg-prop';
                 prop.innerText = isCloud ? '☁️' : (Math.random() < 0.5 ? '🌲' : '🌳');
@@ -940,20 +925,19 @@
                 if (isCloud) {
                     prop.style.top = (Math.random() * 30 + 5) + '%';
                     prop.style.fontSize = (Math.random() * 30 + 40) + 'px';
-                    prop.dataset.speed = 25; // 雲飄得比較慢
+                    prop.dataset.speed = 25; 
                     prop.style.opacity = '0.7';
                     prop.style.zIndex = 2;
                 } else {
                     prop.style.bottom = '30%';
                     prop.style.fontSize = (Math.random() * 20 + 50) + 'px';
-                    prop.dataset.speed = 50; // 樹的移動速度跟隨地板
+                    prop.dataset.speed = 50; 
                     prop.style.zIndex = 3;
                 }
                 
                 battlefield.appendChild(prop);
             }
 
-            // 寶箱獎勵
             if (roundJumps > 0 && roundJumps % 50 === 0) {
                 let bonusAmount = (20 + (currentRound * 10)) * coinMultiplier;
                 addCoins(bonusAmount);
@@ -1045,7 +1029,7 @@
             location.reload(); 
         });
 
-        // --- Joy-Con 連線 ---
+        // --- Joy-Con 連線 (修改 filters) ---
         const connectBtn = document.getElementById('connect-btn');
         const statusText = document.getElementById('connection-status');
         const JUMP_THRESHOLD = 8000; 
@@ -1062,7 +1046,8 @@
 
         connectBtn.addEventListener('click', async () => {
             try {
-                const devices = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x057e }] });
+                // 修改處：將 filters 內的條件清空，以捕捉所有相容的 HID 裝置
+                const devices = await navigator.hid.requestDevice({ filters: [] });
                 if (devices.length === 0) return;
 
                 const joycon = devices[0];
@@ -1111,13 +1096,12 @@
 
             } catch (error) {
                 console.error(error);
-                statusText.innerText = "連線失敗，請確定手把已經配對到電腦。";
+                statusText.innerText = "連線失敗，請確定手把已經配對到電腦，或是檢查系統藍牙權限。";
             }
         });
         
         document.getElementById('start-btn').addEventListener('click', () => startRound(true));
 
-        // 初始檢查解鎖狀態
         checkUnlocks();
 
     </script>
