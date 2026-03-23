@@ -882,8 +882,9 @@
         function triggerJump() {
             if (!isPlaying || currentPhase !== 'JUMP') return; 
             
+            // 將防連點間隔拉長到 450 毫秒，避免一次跳躍被重複感測
             const now = Date.now();
-            if (now - lastJumpTime < 300) return; 
+            if (now - lastJumpTime < 450) return; 
             lastJumpTime = now;
             
             roundJumps++;
@@ -1029,10 +1030,11 @@
             location.reload(); 
         });
 
-        // --- Joy-Con 連線 (修改 filters) ---
+        // --- Joy-Con 連線 ---
         const connectBtn = document.getElementById('connect-btn');
         const statusText = document.getElementById('connection-status');
-        const JUMP_THRESHOLD = 8000; 
+        // 將判斷起跳的力道門檻值提高，避免細微震動被算進去
+        const JUMP_THRESHOLD = 12000; 
 
         async function sendJoyconCommand(device, subcommand, args) {
             const payload = new Uint8Array(40);
@@ -1046,7 +1048,6 @@
 
         connectBtn.addEventListener('click', async () => {
             try {
-                // 修改處：將 filters 內的條件清空，以捕捉所有相容的 HID 裝置
                 const devices = await navigator.hid.requestDevice({ filters: [] });
                 if (devices.length === 0) return;
 
@@ -1080,8 +1081,9 @@
                             const magnitude = Math.sqrt(x*x + y*y + z*z);
                             if (magnitude > JUMP_THRESHOLD) triggerJump();
 
-                            const rightButtons = data.getUint8(3);
-                            const leftButtons = data.getUint8(5);
+                            // 修正按鈕讀取位置：將原本的 3 和 5 改成 2 和 4
+                            const rightButtons = data.getUint8(2);
+                            const leftButtons = data.getUint8(4);
                             
                             if ((rightButtons & 0x08) !== 0 || (leftButtons & 0x04) !== 0) buyCat(1); 
                             if ((rightButtons & 0x04) !== 0 || (leftButtons & 0x01) !== 0) buyCat(2); 
